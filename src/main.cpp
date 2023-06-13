@@ -10,7 +10,8 @@
 //   -trace <cell_number>    : instead of creating an output file, traces a cell in an existing 
 //                             file.
 //
-//   -load <filename> <addr> : instead of creating output file, loads a file into the specified
+//   -load <filename> <addr> <size_limit>
+//                           : instead of creating output file, loads a file into the specified
 //                             RAM physical address
 //
 //=================================================================================================
@@ -42,6 +43,7 @@ void     parseCommandLine(const char** argv);
 void     trace(uint32_t cellNumber);
 void     readConfigurationFile(string filename);
 void     loadFile(string filename, string address);
+uint64_t stringTo64(const string& str);
 
 // Define a convenient type to encapsulate a vector of strings
 typedef vector<string> strvec_t;
@@ -72,6 +74,7 @@ struct cmdline_t
     bool     load;
     string   filename;
     string   address;
+    string   sizeLimit;
     bool     trace;
     uint32_t cellNumber;
     string   config;
@@ -170,6 +173,11 @@ void parseCommandLine(const char** argv)
                 cmdLine.address = argv[++i];                
             else
                 throwRuntime("Missing address on -load"); 
+
+            if (argv[i+1])
+                cmdLine.sizeLimit = argv[++i];                
+            else
+                throwRuntime("Missing size limit on -load"); 
 
             continue;
         }
@@ -744,41 +752,6 @@ void trace(uint32_t cellNumber)
 //=================================================================================================
 
 
-//=================================================================================================
-// stringToScaledInt() - Converts a string with a K, M, or G suffix to a 64-bit integer
-//=================================================================================================
-uint64_t stringToScaledInt(string str)
-{
-    // If the string is empty, do nothing
-    if (str == "") return 0;
-
-    // Fetch the base value of the string
-    uint64_t value = stoull(str, 0, 0);
-
-    // Look for the null at the end of the string
-    const char* p = strchr(str.c_str(), 0);
-
-    // Fetch the character at the end of the string
-    char letter = *(p-1);
-
-    // If the last character is a valid digit, just return the value
-    if (letter >= '0' && letter <= '9') return value;
-    if (letter >= 'a' && letter <= 'f') return value;
-    if (letter >= 'A' && letter <= 'F') return value;
-    
-    // Check to see if the last character is a valid multiplier
-    if (letter == 'K') return value * 1024;
-    if (letter == 'M') return value * 1024 * 1024;
-    if (letter == 'G') return value * 1024 * 1024 * 1024;
-
-    // If we get here, there was an invalid multiplier
-    throwRuntime("Invalid multiplier on %s", str.c_str());
-    
-    // This is just here to keep the compiler happy
-    return 0;
-}
-//=================================================================================================
-
 
 //=================================================================================================
 // readConfigurationFile() - Reads in the configuration file and populates the global "config"
@@ -809,8 +782,8 @@ void readConfigurationFile(string filename)
     cf.get("output_file",         &config.output_file        );
 
     // Convert the scaled integer strings into binary values
-    config.cells_per_frame = stringToScaledInt(cells_per_frame);
-    config.contig_size     = stringToScaledInt(contig_size);
+    config.cells_per_frame = stringTo64(cells_per_frame);
+    config.contig_size     = stringTo64(contig_size);
 }
 //=================================================================================================
 
@@ -916,12 +889,14 @@ void fillBuffer(int fd, size_t fileSize)
 
 
 //=================================================================================================
-// stringToAddress() - Converts a character string to a 64-bit integer after stripping out any
-//                     underscore characters from the input string.
+// stringTo64() - Converts a character string to a 64-bit integer after stripping out any
+//                     underscore characters from the input string.  Also scales the return
+//                     value according to any K, M, or G suffix on the string
 //=================================================================================================
-uint64_t stringToAddress(const string& str)
+uint64_t stringTo64(const string& str)
 {
     char buffer[100], *out = buffer;
+    uint64_t multiplier = 0;
 
     // Point to the beginning of the input string
     const char* in = str.c_str();
@@ -949,11 +924,31 @@ uint64_t stringToAddress(const string& str)
     // Nul-terminate the output string
     *out = 0;
 
+    // If the buffer is empty, the result is 0
+    if (buffer[0] == 0) return 0;
+
+    // Fetch the final character
+    char letter = *(out-1);
+
+    // Use the suffix (if any) to determine the multiplier
+         if (letter >= '0' && letter <= '9') multiplier = 1;
+    else if (letter >= 'a' && letter <= 'f') multiplier = 1;
+    else if (letter >= 'A' && letter <= 'F') multiplier = 1;
+    else if (letter == 'K') multiplier = 1024;
+    else if (letter == 'M') multiplier = 1024 * 1024;
+    else if (letter == 'G') multiplier = 1024 * 1024 * 1024;
+
+    // If an invalid suffix was specified, whine about it
+    if (multiplier == 0) throwRuntime("Invalid suffix on %s", str.c_str());
+
+    // If there was a suffix on the string, remove it
+    if (multiplier > 1) *(out-1) = 0;
+
     // Convert the ASCII string to a numeric value
     uint64_t value = stoull(buffer, 0, 0);
 
     // Hand the resulting value to the caller
-    return value;
+    return value * multiplier;
 }
 //=================================================================================================
 
@@ -974,8 +969,14 @@ void loadFile(string filename, string address)
     // Find out how big the input file is
     size_t fileSize = getFileSize(fd);
 
+    // Find out how large our contiguous buffer is
+    size_t sizeLimit = stringTo64(cmdLine.sizeLimit);
+
+    // Ensure that the file doesn't exceed the size of the buffer it's being loaded in to
+    if (fileSize > sizeLimit) throwRuntime("%s is too big to fit into buffer", filename.c_str());
+
     // Convert the string-form of the address to binary
-    uint64_t physAddr = stringToAddress(address);
+    uint64_t physAddr = stringTo64(address);
 
     // Make at least minimal effort to ensure the user doesn't blow away their system
     if (physAddr == 0) throwRuntime("Loading to RAM address 0 not permitted");
