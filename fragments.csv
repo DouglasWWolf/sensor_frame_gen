@@ -19,16 +19,16 @@ G, 121, 122, 123
 C, 131, 132, 133
 
 # In our hypothetical example, this is going to be a fragment prefix
-*, ATTAGCGC
+p, ATTAGCGC
 
 # In our hypothetical example, this is going to be a fragment suffix
-$, GATTACA
+s, GATTACA
 
 # This defines example fragment name "alpha"
-alpha, *ATTGCCCCCAATAATAAAA$
+alpha, pATTGCCCCCAATAATAAAAs
 
 # This defines example fragment name "bravo"
-bravo, *, 123, 456, ATGAAATAGCCCCCCAATTGATAC, 255, 255, $
+bravo, p, 123, 192, ATGAAATAGCCCCCCAATTGATAC, 255, 255, s
 
 # This defines example fragment name "ifs"
 ifs, 200, 200, 200
