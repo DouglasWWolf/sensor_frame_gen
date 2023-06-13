@@ -5,11 +5,14 @@
 //
 // Command line options:
 //
-//   -config <filename>    : specifies the name of a configuration file
+//   -config <filename>      : specifies the name of a configuration file
 //
-//   -trace <cell_number>  : instead of creating an output file, traces a cell in an existing 
-//                           file.
-//                        
+//   -trace <cell_number>    : instead of creating an output file, traces a cell in an existing 
+//                             file.
+//
+//   -load <filename> <addr> : instead of creating output file, loads a file into the specified
+//                             RAM physical address
+//
 //=================================================================================================
 
 #include <unistd.h>
@@ -25,6 +28,7 @@
 #include <vector>
 #include <fstream>
 #include "config_file.h"
+#include "PhysMem.h"
 
 using namespace std;
  
@@ -37,13 +41,13 @@ void     writeOutputFile(uint32_t frameGroupCount);
 void     parseCommandLine(const char** argv);
 void     trace(uint32_t cellNumber);
 void     readConfigurationFile(string filename);
+void     loadFile(string filename, string address);
 
 // Define a convenient type to encapsulate a vector of strings
 typedef vector<string> strvec_t;
 
 // Contains nucleic acid fragement definitions
 map<string, vector<int>> fragment;
-
 
 // This list defines each fragment distribution in the distribution definitions file
 struct distribution_t
@@ -52,6 +56,9 @@ struct distribution_t
     vector<uint8_t> cellValue;
 };
 vector<distribution_t> distributionList;
+
+// This object maps physical RAM address into userspace.
+PhysMem RAM;
 
 // This is the number of cells in a single data row on the chip
 const int ROW_SIZE = 2048;
@@ -62,6 +69,9 @@ const int ROW_SIZE = 2048;
 //=================================================================================================
 struct cmdline_t
 {
+    bool     load;
+    string   filename;
+    string   address;
     bool     trace;
     uint32_t cellNumber;
     string   config;
@@ -146,6 +156,24 @@ void parseCommandLine(const char** argv)
         // Fetch this parameter
         string token = argv[i];
 
+        // Handle "-load" command line switch
+        if (token == "-load")
+        {
+            cmdLine.load = true;
+
+            if (argv[i+1])
+                cmdLine.filename = argv[++i];                
+            else
+                throwRuntime("Missing filename on -load");                
+
+            if (argv[i+1])
+                cmdLine.address = argv[++i];                
+            else
+                throwRuntime("Missing address on -load"); 
+
+            continue;
+        }
+
         // Handle the "-trace" command line switch
         if (token == "-trace")
         {
@@ -194,6 +222,12 @@ void execute(const char** argv)
     if (cmdLine.trace)
     {
         trace(cmdLine.cellNumber);
+        exit(0);
+    }
+
+    if (cmdLine.load)
+    {
+        loadFile(cmdLine.filename, cmdLine.address);
         exit(0);
     }
 
@@ -738,6 +772,190 @@ void readConfigurationFile(string filename)
     cf.get("output_file",         &config.output_file        );
 }
 //=================================================================================================
+
+
+//=================================================================================================
+// getFileSize() - Returns the size (in bytes) of the input file
+//
+// Passed:  descriptor = The file descriptor of the file we want the size of
+//
+// Returns: The size of the file in bytes
+//=================================================================================================
+size_t getFileSize(int descriptor)
+{
+    // Find out how big the file is
+    off64_t result = lseek64(descriptor, 0, SEEK_END);
+
+    // Rewind back to the start of the file
+    lseek(descriptor, 0, SEEK_SET);
+
+    // And hand the size of the input-file to the caller
+    return result;
+}
+//=================================================================================================
+
+
+//=================================================================================================
+// fillBuffer() - This stuffs some data into a DMA buffer
+//
+//                          <<< THIS ROUTINE IS A KLUDGE >>>
+//
+// Because of yet unresolved issues with very slow-writes to the DMA buffer, we are reading the
+// file into a local user-space buffer then copying it into the DMA buffer.    For reasons we don't
+// yet understand, the MMU allows us to copy a user-space buffer into the DMA space buffer faster
+// than it allows us to write to it directly.
+//
+//                               <<< THIS IS A HACK >>>
+//
+// The hack will be fixed when we figure out how to write a device driver that can allocate
+// very large contiguous blocks.
+//  
+//=================================================================================================
+void fillBuffer(int fd, size_t fileSize)
+{
+    // We will load the file into the buffer in blocks of data this size (i.e, 1 GB)
+    const uint32_t FRAME_SIZE = 0x40000000;
+
+    // This is the number of bytes that have been loaded into the buffer
+    uint64_t bytesLoaded = 0;
+
+    // Get a pointer to the start of the contiguous buffer
+    uint8_t* ptr = RAM.bptr();
+
+    // Allocate a RAM buffer in userspace
+    uint8_t* localBuffer = new uint8_t[FRAME_SIZE];
+
+    // Compute how many bytes of data to load...
+    uint64_t bytesRemaining = fileSize;
+
+    // Display the completion percentage
+    printf("Percent loaded =   0");
+    fflush(stdout);
+
+    // While there is still data to load from the file...
+    while (bytesRemaining)
+    {
+        // We'd like to load the entire remainder of the file
+        size_t blockSize = bytesRemaining;
+
+        // We're going to load this file in chunks of no more than 1 GB
+        if (blockSize > FRAME_SIZE) blockSize = FRAME_SIZE;
+
+        // Load this chunk of the file into our local user-space buffer
+        size_t rc = read(fd, localBuffer, blockSize);
+        if (rc != blockSize)
+        {
+            perror("\nread");
+            exit(1);
+        }
+
+        // Copy the userspace buffer into the contiguous block of physical RAM
+        memcpy(ptr, localBuffer, blockSize);
+
+        // Bump the pointer to where the next chunk will be stored
+        ptr += blockSize;
+
+        // And keep track of how many bytes are left to load
+        bytesRemaining -= blockSize;
+
+        // Compute and display the completion percentage
+        bytesLoaded += blockSize;
+        int pct = 100 * bytesLoaded / fileSize;
+        printf("\b\b\b%3i", pct);
+        fflush(stdout);
+    }
+
+    // Finish the "percent complete" display
+    printf("\b\b\b100\n");
+
+    // Free up the localBuffer so we don't leak memory
+    delete[] localBuffer;
+}
+//=================================================================================================
+
+
+//=================================================================================================
+// stringToAddress() - Converts a character string to a 64-bit integer after stripping out any
+//                     underscore characters from the input string.
+//=================================================================================================
+uint64_t stringToAddress(const string& str)
+{
+    char buffer[100], *out = buffer;
+
+    // Point to the beginning of the input string
+    const char* in = str.c_str();
+
+    // This loop is going to strip underscores from the input string
+    while (*in)
+    {
+        // If we've reached the end of the input string, we're done
+        if (*in == 0) break;
+
+        // If we're at the last character of the output buffer, we're done
+        if ((out - buffer) == sizeof(buffer)-1) break;
+
+        // If the input character is an underscore, skip it
+        if (*in == '_')
+        {
+            ++in;
+            continue;
+        }
+
+        // Move the input character to the output buffer
+        *out++ = *in++;
+    }
+
+    // Nul-terminate the output string
+    *out = 0;
+
+    // Convert the ASCII string to a numeric value
+    uint64_t value = stoull(buffer, 0, 0);
+
+    // Hand the resulting value to the caller
+    return value;
+}
+//=================================================================================================
+
+
+
+//=================================================================================================
+// loadFile() - Loads a data-file into RAM at a defined physical address
+//=================================================================================================
+void loadFile(string filename, string address)
+{
+    // Ensure that we're running as the root user
+    if (geteuid() != 0) throw runtime_error("Must be root to run.  Use sudo.");
+
+    // Open the data file
+    int fd = open(filename.c_str(), O_RDONLY);
+    if (fd < 0) throwRuntime("Can't open '%s'", filename.c_str());
+
+    // Find out how big the input file is
+    size_t fileSize = getFileSize(fd);
+
+    // Convert the string-form of the address to binary
+    uint64_t physAddr = stringToAddress(address);
+
+    // Make at least minimal effort to ensure the user doesn't blow away their system
+    if (physAddr == 0) throwRuntime("Loading to RAM address 0 not permitted");
+
+    // Tell the user what we're doing...
+    printf("Mapping RAM...\n");
+
+    // Map the physical RAM space
+    RAM.map(physAddr, fileSize);
+
+    // Tell the user what's taking so long...
+    printf("Loading %s into RAM at address %s\n", filename.c_str(), address.c_str());
+
+    // Load the data file into the RAM buffer
+    fillBuffer(fd, fileSize);
+
+    // Close the input file, we're done
+    close(fd);
+}
+//=================================================================================================
+
 
 
 
