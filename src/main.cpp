@@ -106,6 +106,7 @@ struct config_t
 //=================================================================================================
 int main(int argc, const char** argv)
 {
+
     try
     {
         execute(argv);
@@ -134,6 +135,26 @@ static void throwRuntime(const char* fmt, ...)
 }
 //=================================================================================================
 
+
+
+//=================================================================================================
+// radix() - Examine an input string and return a 16 if the first two characters are "0x" or "0X",
+//           otherwise it returns 10.
+//=================================================================================================
+int radix(const string& str)
+{
+    // Get a pointer to the characters
+    const char* p = str.c_str(); 
+
+    // Skip past any spaces or tabs
+    while (*p == 32 || *p == 9) ++p;
+
+    // Tell the caller whether this string is radix 10 or radix 16
+    return (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) ? 16 : 10;  
+}
+//=================================================================================================
+
+
 //=================================================================================================
 // to_int() - Converts an ASCII string to an integer
 //=================================================================================================
@@ -141,7 +162,7 @@ int to_int(const char* str)
 {
     while (*str == 32 || *str == 9) ++str;
     if (*str == 0) return 0;
-    return stoi(str, nullptr, 0);
+    return stoi(str, nullptr, radix(str));
 }
 //=================================================================================================
 
@@ -890,8 +911,8 @@ void fillBuffer(int fd, size_t fileSize)
 
 //=================================================================================================
 // stringTo64() - Converts a character string to a 64-bit integer after stripping out any
-//                     underscore characters from the input string.  Also scales the return
-//                     value according to any K, M, or G suffix on the string
+//                underscore characters from the input string.  Also scales the return value
+//                according to any K, M, or G suffix on the string
 //=================================================================================================
 uint64_t stringTo64(const string& str)
 {
@@ -945,7 +966,7 @@ uint64_t stringTo64(const string& str)
     if (multiplier > 1) *(out-1) = 0;
 
     // Convert the ASCII string to a numeric value
-    uint64_t value = stoull(buffer, 0, 0);
+    int64_t value = stoull(buffer, 0, radix(buffer));
 
     // Hand the resulting value to the caller
     return value * multiplier;
