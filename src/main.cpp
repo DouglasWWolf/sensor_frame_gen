@@ -271,6 +271,13 @@ void execute(const char** argv)
     // Parse the command line
     parseCommandLine(argv);
 
+    // If we're just loading a data-file into a contig-buffer, make it so
+    if (cmdLine.load)
+    {
+        loadFile(cmdLine.filename, cmdLine.address);
+        exit(0);
+    }
+
     // Fetch the configuration values from the file and populate the global "config" structure
     readConfigurationFile(cmdLine.config);
 
@@ -278,12 +285,6 @@ void execute(const char** argv)
     if (cmdLine.trace)
     {
         trace(cmdLine.cellNumber);
-        exit(0);
-    }
-
-    if (cmdLine.load)
-    {
-        loadFile(cmdLine.filename, cmdLine.address);
         exit(0);
     }
 
@@ -370,7 +371,7 @@ bool getNextCommaSeparatedInt(const char*& p, int* pValue)
 // Our input string can consist of either:
 //   (1) A number in ASCII decimal
 //   (2) A number in ASCII hex
-//   (3) A string of one or 1-character fragment names
+//   (3) A string of one or more 1-character fragment names
 //=================================================================================================
 void symbolsToIntVec(const char* str, vector<int>& v)
 {
@@ -395,7 +396,7 @@ void symbolsToIntVec(const char* str, vector<int>& v)
         // Does this symbol exist in our fragment table?
         auto it = fragment.find(fragmentName);
 
-        // If it doesn't exist in our symbol table, that's fatal
+        // If it doesn't exist in our fragment table, that's fatal
         if (it == fragment.end()) throwRuntime("Unknown symbol '%c'", this_symbol);
 
         // Get a reference to the vector of integers that the symbol defines
