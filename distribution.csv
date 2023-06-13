@@ -1,0 +1,22 @@
+# 
+# This file defines how sequences of fragments are distributed among the cells
+#
+# Comments can begin with '#' or with '//'
+#
+
+
+// Places this sequence of fragments in cell 1
+1 $ alpha, bravo
+
+// Places this sequence of fragments in cell 2
+2 $ bravo, ifs, alpha, ifs, bravo
+
+// This will place this sequence of fragment in cells 1 thru 10
+1, 10 $ alpha, bravo, alpha
+
+// This will place this sequence of fragments in cells 100, 102, 104, 106 [...] 200.
+100, 200, 2 $ alpha, bravo, alpha, bravo
+
+// This will place this sequence of fragments in cells 1000, 1100, 1200, and 1300
+1000, 1300, 100 $ bravo, ifs, alpha
+
