@@ -745,12 +745,49 @@ void trace(uint32_t cellNumber)
 
 
 //=================================================================================================
+// stringToScaledInt() - Converts a string with a K, M, or G suffix to a 64-bit integer
+//=================================================================================================
+uint64_t stringToScaledInt(string str)
+{
+    // If the string is empty, do nothing
+    if (str == "") return 0;
+
+    // Fetch the base value of the string
+    uint64_t value = stoull(str, 0, 0);
+
+    // Look for the null at the end of the string
+    const char* p = strchr(str.c_str(), 0);
+
+    // Fetch the character at the end of the string
+    char letter = *(p-1);
+
+    // If the last character is a valid digit, just return the value
+    if (letter >= '0' && letter <= '9') return value;
+    if (letter >= 'a' && letter <= 'f') return value;
+    if (letter >= 'A' && letter <= 'F') return value;
+    
+    // Check to see if the last character is a valid multiplier
+    if (letter == 'K') return value * 1024;
+    if (letter == 'M') return value * 1024 * 1024;
+    if (letter == 'G') return value * 1024 * 1024 * 1024;
+
+    // If we get here, there was an invalid multiplier
+    throwRuntime("Invalid multiplier on %s", str.c_str());
+    
+    // This is just here to keep the compiler happy
+    return 0;
+}
+//=================================================================================================
+
+
+//=================================================================================================
 // readConfigurationFile() - Reads in the configuration file and populates the global "config"
 //                           structure.
 //=================================================================================================
 void readConfigurationFile(string filename)
 {
     CConfigFile cf;
+    string cells_per_frame, contig_size;
 
     // Declare a default filename
     const char* cfilename = "sensor_frame_gen.conf";
@@ -762,14 +799,18 @@ void readConfigurationFile(string filename)
     if (!cf.read(cfilename, false)) throwRuntime("Can't read %s", cfilename);
 
     // Fetch each configuration
-    cf.get("cells_per_frame",     &config.cells_per_frame    );
-    cf.get("contig_size",         &config.contig_size        );
+    cf.get("cells_per_frame",     &cells_per_frame           );
+    cf.get("contig_size",         &contig_size               );
     cf.get("data_frames",         &config.data_frames        );
     cf.get("diagnostic_values",   &config.diagnostic_values  );
     cf.get("quiescent",           &config.quiescent          );
     cf.get("fragment_file",       &config.fragment_file      );
     cf.get("distribution_file",   &config.distribution_file  );
     cf.get("output_file",         &config.output_file        );
+
+    // Convert the scaled integer strings into binary values
+    config.cells_per_frame = stringToScaledInt(cells_per_frame);
+    config.contig_size     = stringToScaledInt(contig_size);
 }
 //=================================================================================================
 
