@@ -168,6 +168,29 @@ int to_int(const char* str)
 
 
 //=================================================================================================
+// showHelp() - Display help-text and quit
+//=================================================================================================
+void showHelp()
+{
+    printf
+    (
+        "Usage:\n"
+        "  sfg [-config <filename>]\n"
+        "  sfg -trace <cell_number>\n"
+        "  sfg -load <filename> <address> <size_limit>\n"
+        "\n"
+        "  <address> and <size_limit> may be expressed in either decimal or hex, and may\n"
+        "  include optional K, M, or G suffixes.   Verilog-style underscores are allowed\n"
+        "  in hex values.\n"
+    );
+
+    // Terminate the program
+    exit(0);
+}
+//=================================================================================================
+
+
+//=================================================================================================
 // parseCommandLine() - Parse the command line parameters into the -cmdLine structure
 //=================================================================================================
 void parseCommandLine(const char** argv)
@@ -179,6 +202,10 @@ void parseCommandLine(const char** argv)
     {
         // Fetch this parameter
         string token = argv[i];
+
+        // Handle the "-help" command line switch
+        if (token == "-help" || token == "-h" || token == "?")
+            showHelp();
 
         // Handle "-load" command line switch
         if (token == "-load")
