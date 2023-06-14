@@ -13,22 +13,22 @@
 
 
 # Build some basic definitions for A, T, G, and C
-A, 101, 102, 103
-T, 111, 112, 113
-G, 121, 122, 123
-C, 131, 132, 133
+A = 101, 102, 103
+T = 111, 112, 113
+G = 121, 122, 123
+C = 131, 132, 133
 
 # In our hypothetical example, this is going to be a fragment prefix
-p, ATTAGCGC
+p = ATTAGCGC
 
 # In our hypothetical example, this is going to be a fragment suffix
-s, GATTACA
+s = GATTACA
 
 # This defines example fragment name "alpha"
-alpha, pATTGCCCCCAATAATAAAAs
+alpha = pATTGCCCCCAATAATAAAAs
 
 # This defines example fragment name "bravo"
-bravo, p, 123, 192, ATGAAATAGCCCCCCAATTGATAC, 255, 255, s
+bravo = p, 123, 192, ATGAAATAGCCCCCCAATTGATAC, 255, 255, s
 
 # This defines example fragment name "ifs"
-ifs, 200, 200, 200
+ifs = 200, 200, 200

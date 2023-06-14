@@ -313,7 +313,6 @@ void execute(const char** argv)
 // Returns: true if a token was extracted, false if no more tokens available on the line
 //
 // Note: This routine will accomodate lines containing optional carriage-returns
-//       Line is assumed to contain no linefeeds
 //=================================================================================================
 bool getNextCommaSeparatedToken(const char*& p, char* token)
 {
@@ -327,7 +326,10 @@ bool getNextCommaSeparatedToken(const char*& p, char* token)
     if (*p == 0 || *p == 10 || *p == 13) return false;
 
     // Extract the token into the buffer
-    while (!(*p == 32 || *p == 9 || *p == 10 || *p == 13 || *p == 0 || *p == ',')) *token++ = *p++;
+    while (!(*p == 32 || *p == 9 || *p == 10 || *p == 13 || *p == 0 || *p == ',' || *p == '='))
+    {
+        *token++ = *p++;
+    }
 
     // Nul-terminate the extracted token
     *token = 0;
@@ -335,8 +337,8 @@ bool getNextCommaSeparatedToken(const char*& p, char* token)
     // Skip over any trailing whitespace
     while (*p == 32 || *p == 9) ++p;
 
-    // If there is a comma, skip over it
-    if (*p == ',') ++p;
+    // If there is a comma or equal-sign, skip over it
+    if (*p == ',' || *p == '=') ++p;
 
     // Tell the caller that they have extracted a token
     return true;
