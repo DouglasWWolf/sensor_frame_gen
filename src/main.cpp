@@ -358,7 +358,7 @@ bool getNextCommaSeparatedInt(const char*& p, int* pValue)
     bool status = getNextCommaSeparatedToken(p, token);    
 
     // Convert that token to an integer
-    *pValue = to_int(token);
+    *pValue = stringTo64(token);
 
     // And tell the caller whether or not there was a token available
     return status;
@@ -404,7 +404,7 @@ void symbolsToIntVec(const char* str, vector<int>& v)
         // Get a reference to the vector of integers that the symbol defines
         auto& symdef = it->second;
 
-        // Append that vector of integer to output vector 'v'
+        // Append that vector of integers to output vector 'v'
         v.insert(v.end(), symdef.begin(), symdef.end());
     }
 }
