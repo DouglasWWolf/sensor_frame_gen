@@ -789,12 +789,15 @@ void trace(uint32_t cellNumber)
     // Loop through each frame of the file...
     while (fread(frame, 1, config.cells_per_frame, ifile) == config.cells_per_frame)
     {
+        
         // If this isn't the first value we've output, print a comma separator
+        #if 0
         if (!first) printf(", ");
         first = false;
+        #endif
         
         // And display the value of the cell number that was specified on the command line
-        printf("%d", frame[cellNumber]);
+        printf("%d\n", frame[cellNumber]);
     }
     
     // Terminate the line of text in the output
