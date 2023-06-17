@@ -303,6 +303,9 @@ void execute(const char** argv)
         exit(0);
     }
 
+    // Load the nucleotide definitions
+    loadNucleotides();
+
     // Load the fragment definitions
     loadFragments();
 
@@ -473,7 +476,6 @@ void loadNucleotides()
 
         // If the fragment name is blank, skip this line
         if (name[0] == 0) continue;
-
 
         // If the name is more than a single character, complain
         if (strlen(name) != 1) throwRuntime("Illegal nucleotide: %s", name);
