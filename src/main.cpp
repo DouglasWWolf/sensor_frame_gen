@@ -91,6 +91,7 @@ struct cmdline_t
 //=================================================================================================
 struct config_t
 {
+    uint32_t         adc_per_nucleotide;
     uint64_t         random_seed;
     uint32_t         cells_per_frame;
     uint64_t         contig_size;
@@ -433,12 +434,12 @@ void symbolsToIntVec(const char* str, vector<int>& v)
 //=================================================================================================
 void loadNucleotides()
 {
-    char fragmentName[1000], buffer[1000];
+    char name[1000], buffer[1000];
     vector<int> v;
     string line;
 
-    // Fetch the filename of the fragment definiton file
-    const char* filename = config.fragment_file.c_str();
+    // Fetch the filename of the nucleotide definiton file
+    const char* filename = config.nucleotide_file.c_str();
 
     // Open the input file
     ifstream file(filename);   
@@ -468,10 +469,14 @@ void loadNucleotides()
         v.clear();
 
         // Fetch the fragment name
-        getNextCommaSeparatedToken(p, fragmentName);
+        getNextCommaSeparatedToken(p, name);
 
         // If the fragment name is blank, skip this line
-        if (fragmentName[0] == 0) continue;
+        if (name[0] == 0) continue;
+
+
+        // If the name is more than a single character, complain
+        if (strlen(name) != 1) throwRuntime("Illegal nucleotide: %s", name);
 
         // Fetch every integer value after the name
         while (getNextCommaSeparatedToken(p, buffer))
@@ -480,7 +485,7 @@ void loadNucleotides()
         }
 
         // Save this fragment data into our global variable
-        fragment[fragmentName] = v;
+        nucleotide[name] = v;
     }
 }
 //=================================================================================================
@@ -551,6 +556,13 @@ void loadFragments()
 
         // If the fragment name is blank, skip this line
         if (fragmentName[0] == 0) continue;
+
+        // Fragments are allowed to share a name with a nucleotide
+        if (nucleotide.find(fragmentName) != nucleotide.end())
+        {
+            throwRuntime("Fragment '%s' shares name with nucleotide");            
+        }
+    
 
         // Fetch every integer value after the name
         while (getNextCommaSeparatedToken(p, buffer))
@@ -902,16 +914,17 @@ void readConfigurationFile(string filename)
     if (!cf.read(cfilename, false)) throwRuntime("Can't read %s", cfilename);
 
     // Fetch each configuration
-    cf.get("cells_per_frame",     &cells_per_frame           );
-    cf.get("contig_size",         &contig_size               );
-    cf.get("random_seed",         &config.random_seed        );
-    cf.get("data_frames",         &config.data_frames        );
-    cf.get("diagnostic_values",   &config.diagnostic_values  );
-    cf.get("quiescent",           &config.quiescent          );
-    cf.get("nucleotide_file",     &config.nucleotide_file    );
-    cf.get("fragment_file",       &config.fragment_file      );
-    cf.get("distribution_file",   &config.distribution_file  );
-    cf.get("output_file",         &config.output_file        );
+    cf.get("cells_per_frame",     &cells_per_frame          );
+    cf.get("contig_size",         &contig_size              );
+    cf.get("adc_per_nucleotide",  &config.adc_per_nucleotide);
+    cf.get("random_seed",         &config.random_seed       );
+    cf.get("data_frames",         &config.data_frames       );
+    cf.get("diagnostic_values",   &config.diagnostic_values );
+    cf.get("quiescent",           &config.quiescent         );
+    cf.get("nucleotide_file",     &config.nucleotide_file   );
+    cf.get("fragment_file",       &config.fragment_file     );
+    cf.get("distribution_file",   &config.distribution_file );
+    cf.get("output_file",         &config.output_file       );
 
     // Convert the scaled integer strings into binary values
     config.cells_per_frame = stringTo64(cells_per_frame);
