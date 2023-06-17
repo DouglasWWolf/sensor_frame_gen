@@ -34,6 +34,7 @@
 using namespace std;
  
 void     execute(const char** argv);
+void     loadNucleotides();
 void     loadFragments();
 void     loadDistribution();
 uint32_t findLongestSequence();
@@ -50,6 +51,9 @@ typedef vector<string> strvec_t;
 
 // Contains nucleic acid fragement definitions
 map<string, vector<int>> fragment;
+
+// Contains nucleotide definitions
+map<string, vector<int>> nucleotide;
 
 // This list defines each fragment distribution in the distribution definitions file
 struct distribution_t
@@ -93,6 +97,7 @@ struct config_t
     vector<uint8_t>  diagnostic_values;
     uint32_t         data_frames;
     uint8_t          quiescent;
+    string           nucleotide_file;
     string           fragment_file;
     string           distribution_file;
     string           output_file;
@@ -418,6 +423,68 @@ void symbolsToIntVec(const char* str, vector<int>& v)
     }
 }
 //=================================================================================================
+
+
+
+//=================================================================================================
+// loadNucleotides() - Load nucleotide definitions into RAM
+//
+// On Exit: the global "nucleotide" object contains nucleotide definitions
+//=================================================================================================
+void loadNucleotides()
+{
+    char fragmentName[1000], buffer[1000];
+    vector<int> v;
+    string line;
+
+    // Fetch the filename of the fragment definiton file
+    const char* filename = config.fragment_file.c_str();
+
+    // Open the input file
+    ifstream file(filename);   
+
+    // If we can't open the input file, complain
+    if (!file.is_open()) throwRuntime("%s not found", filename);
+
+    // Loop through each line of the input file
+    while (getline(file, line))
+    {
+        // Get a pointer to the line of text we just read
+        const char* p = line.c_str();
+
+        // Skip over whitespace
+        while (*p == 32 || *p == 9) ++p;
+
+        // If the line is blank, skip it
+        if (*p == 0 || *p == 10 || *p == 13) continue;
+
+        // Any line starting with '#' is a comment
+        if (*p == '#') continue;
+
+        // Any line starting with '//' is a comment
+        if (p[0] == '/' && p[1] == '/') continue;
+
+        // Clear the fragment value vector
+        v.clear();
+
+        // Fetch the fragment name
+        getNextCommaSeparatedToken(p, fragmentName);
+
+        // If the fragment name is blank, skip this line
+        if (fragmentName[0] == 0) continue;
+
+        // Fetch every integer value after the name
+        while (getNextCommaSeparatedToken(p, buffer))
+        {
+            symbolsToIntVec(buffer, v);       
+        }
+
+        // Save this fragment data into our global variable
+        fragment[fragmentName] = v;
+    }
+}
+//=================================================================================================
+
 
 
 
@@ -841,6 +908,7 @@ void readConfigurationFile(string filename)
     cf.get("data_frames",         &config.data_frames        );
     cf.get("diagnostic_values",   &config.diagnostic_values  );
     cf.get("quiescent",           &config.quiescent          );
+    cf.get("nucleotide_file",     &config.nucleotide_file    );
     cf.get("fragment_file",       &config.fragment_file      );
     cf.get("distribution_file",   &config.distribution_file  );
     cf.get("output_file",         &config.output_file        );
