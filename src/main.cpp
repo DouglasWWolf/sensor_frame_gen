@@ -87,6 +87,7 @@ struct cmdline_t
 //=================================================================================================
 struct config_t
 {
+    uint64_t         random_seed;
     uint32_t         cells_per_frame;
     uint64_t         contig_size;
     vector<uint8_t>  diagnostic_values;
@@ -265,6 +266,11 @@ void parseCommandLine(const char** argv)
 //=================================================================================================
 void execute(const char** argv)
 {
+    srand(13);
+    for (int i=0; i<10; ++i) printf(" %i", rand());
+    printf("\n");
+    exit(0);
+
     // Ensure that comma-separators get printed for numbers
     setlocale(LC_ALL, "");
 
@@ -280,6 +286,9 @@ void execute(const char** argv)
 
     // Fetch the configuration values from the file and populate the global "config" structure
     readConfigurationFile(cmdLine.config);
+
+    // Seed the random number generator
+    srand(config.random_seed);
 
     // If we're supposed to trace a single cell, make it so
     if (cmdLine.trace)
@@ -828,6 +837,7 @@ void readConfigurationFile(string filename)
     // Fetch each configuration
     cf.get("cells_per_frame",     &cells_per_frame           );
     cf.get("contig_size",         &contig_size               );
+    cf.get("random_seed",         &config.random_seed        );
     cf.get("data_frames",         &config.data_frames        );
     cf.get("diagnostic_values",   &config.diagnostic_values  );
     cf.get("quiescent",           &config.quiescent          );
