@@ -58,8 +58,8 @@ map<string, vector<int>> nucleotide;
 // This list defines each fragment distribution in the distribution definitions file
 struct distribution_t
 {
-    int             first, last, step;
-    vector<uint8_t> cellValue;
+    int      first, last, step;
+    strvec_t cellValue;
 };
 vector<distribution_t> distributionList;
 
@@ -517,7 +517,8 @@ vector<string> tokenToStringVec(const char* token)
         // If it was, then append the name of the nucleotide to 'retval'
         if (it1 != nucleotide.end())
         {
-            retval.push_back(name);
+            for (int ii=0; ii<config.adc_per_nucleotide; ++ii)
+                retval.push_back(name);
             continue;
         }
 
@@ -527,8 +528,7 @@ vector<string> tokenToStringVec(const char* token)
         // If it was, then append the fragment definition to 'retval'
         if (it2 != fragment.end())
         {
-            auto& v = it2->second;
-            concatVec(retval, v);
+            concatVec(retval, it2->second);
             continue;                
         }
 
@@ -625,7 +625,7 @@ void dumpDistributionList()
     for (auto& r : distributionList)
     {
         printf("%i : %i : %i  *** ", r.first, r.last, r.step);
-        for (auto i : r.cellValue) printf("%d  ", i);
+        for (auto s : r.cellValue) printf("%s  ", s.c_str());
         printf("\n");
 
     }
@@ -734,41 +734,35 @@ void loadDistribution()
 //=================================================================================================
 
 
+
 //=================================================================================================
-// fetchNucleotide() - Fills in a vector of ADC values that represent the specified nucleotide
-//
-// Returns:  true  if the specified nucleotide exists
-//           false if the specified nucleotide doesn't exist.
+// nucleotideToADC() - Return an ADC value that is valid for the specified nucleotide
 //=================================================================================================
-bool fetchNucleotide(string name, vector<int>& retval)
+int nucleotideToADC(string name)
 {
+    // Get the name of the nucleotide as a c-string
+    const char* cname = name.c_str();
 
-    // The vector of return values starts out empty
-    retval.clear();
-
+    // If the name is an integer literal, return its value
+    if (name[0] >= '0' && name[0] <= '9') return to_int(cname);
+    
     // Does this nucleotide name exist?
     auto it = nucleotide.find(name);
 
     // If it doesn't return an empty result
-    if (it == nucleotide.end()) return false;
+    if (it == nucleotide.end()) throwRuntime("Unknown nucleotide '%s'", cname);
 
     // Get a handy reference to the integers that define this nucleotide
-    auto& v = it->second;
+    auto& adc_values = it->second;
 
-    // We're going to append ADC values to 'retval'
-    for (int i=0; i<config.adc_per_nucleotide; ++i)
-    {
-        // Select a random index into the vector 'v'
-        int idx = rand() % v.size();
+    // Select a random index into the vector 'adc_values'
+    int idx = rand() % adc_values.size();
 
-        // And append that entry (from 'v') into our return vector
-        retval.push_back(v[idx]);
-    }
-
-    // Tell the caller that 'retval' contains ADC values for a nucleotide
-    return true;
+    // And return the ADC value at that random index
+    return adc_values[idx];
 }
 //=================================================================================================
+
 
 
 //=================================================================================================
@@ -868,7 +862,8 @@ void buildDataFrame(uint8_t* frame, uint32_t frameNumber)
             // Populate the appropriate cells with the data value for this frame
             for (uint32_t cellNumber = dr.first-1; cellNumber < dr.last; cellNumber += dr.step)
             {
-                frame[cellNumber] = dr.cellValue[frameNumber];
+                string nucleotideName = dr.cellValue[frameNumber];
+                frame[cellNumber] = nucleotideToADC(nucleotideName);
             }
         }
     }
