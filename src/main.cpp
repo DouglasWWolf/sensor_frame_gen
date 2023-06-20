@@ -50,7 +50,7 @@ uint64_t stringTo64(const string& str);
 typedef vector<string> strvec_t;
 
 // Contains nucleic acid fragement definitions
-map<string, vector<int>> fragment;
+map<string, vector<string>> fragment;
 
 // Contains nucleotide definitions
 map<string, vector<int>> nucleotide;
@@ -125,7 +125,8 @@ int main(int argc, const char** argv)
 }
 //=================================================================================================
 
-
+void concatVec(vector<int>&    v1, vector<int>&    v2) {v1.insert(v1.end(), v2.begin(), v2.end());}
+void concatVec(vector<string>& v1, vector<string>& v2) {v1.insert(v1.end(), v2.begin(), v2.end());}
 
 //=================================================================================================
 // throwRuntime() - Throws a runtime exception
@@ -272,11 +273,6 @@ void parseCommandLine(const char** argv)
 //=================================================================================================
 void execute(const char** argv)
 {
-    srand(13);
-    for (int i=0; i<10; ++i) printf(" %i", rand());
-    printf("\n");
-    exit(0);
-
     // Ensure that comma-separators get printed for numbers
     setlocale(LC_ALL, "");
 
@@ -384,51 +380,6 @@ bool getNextCommaSeparatedInt(const char*& p, int* pValue)
 //=================================================================================================
 
 
-//=================================================================================================
-// symbolsToIntVec() - Translates a string of characters into a vector of integers and appends
-//                     that vector of integer to output vector 'v'
-//
-// Our input string can consist of either:
-//   (1) A number in ASCII decimal
-//   (2) A number in ASCII hex
-//   (3) A string of one or more 1-character fragment names
-//=================================================================================================
-void symbolsToIntVec(const char* str, vector<int>& v)
-{
-    char fragmentName[2] = {0, 0};
-
-    // If the symbol begins with a digit, it's an integer literal
-    if (*str >= '0' && *str <= '9')
-    {
-        v.push_back(to_int(str));
-        return;
-    }
-
-    // If we get here, 'str' is a sequence of one-character symbol names
-    while (*str)
-    {
-        // Fetch the current symbol from the string
-        char this_symbol = *str++;
-
-        // Turn that symbol into a fragment name
-        fragmentName[0] = this_symbol;
-
-        // Does this symbol exist in our fragment table?
-        auto it = fragment.find(fragmentName);
-
-        // If it doesn't exist in our fragment table, that's fatal
-        if (it == fragment.end()) throwRuntime("Unknown symbol '%c'", this_symbol);
-
-        // Get a reference to the vector of integers that the symbol defines
-        auto& symdef = it->second;
-
-        // Append that vector of integers to output vector 'v'
-        v.insert(v.end(), symdef.begin(), symdef.end());
-    }
-}
-//=================================================================================================
-
-
 
 //=================================================================================================
 // loadNucleotides() - Load nucleotide definitions into RAM
@@ -471,24 +422,25 @@ void loadNucleotides()
         // Clear the fragment value vector
         v.clear();
 
-        // Fetch the fragment name
+        // Fetch the nucleotide name
         getNextCommaSeparatedToken(p, name);
 
-        // If the fragment name is blank, skip this line
+        // If the name is blank, skip this line
         if (name[0] == 0) continue;
 
         // If the name is more than a single character, complain
         if (strlen(name) != 1) throwRuntime("Illegal nucleotide: %s", name);
 
-        // Fetch every integer value after the name
+        // Fetch every integer value after the name and stuff them into a vector
         while (getNextCommaSeparatedToken(p, buffer))
         {
-            symbolsToIntVec(buffer, v);       
+            v.push_back(to_int(buffer));
         }
 
-        // Save this fragment data into our global variable
+        // Save this nucleotide data into our global variable
         nucleotide[name] = v;
     }
+
 }
 //=================================================================================================
 
@@ -505,11 +457,91 @@ void displayFragment(const char* name)
     if (it == fragment.end()) throwRuntime("Unknown fragment '%s'", name);
     auto& v= it->second;
     printf("%s: ", name);
-    for (auto i : v) printf(" %i", i);
+    for (auto s : v) printf(" %s", s.c_str());
     printf("\n");
 }
 //=================================================================================================
 
+
+
+//=================================================================================================
+// tokenToStringVec() - Breaks a token into a vector of strings
+//
+// If the token starts with a digit, the token is returned as is.
+// Any nucleotide name in the token is its own element in the output vector
+// Any fragment name in the token is turned into nucleotides in the output vector
+//=================================================================================================
+vector<string> tokenToStringVec(const char* token)
+{
+    char name[1000];
+    vector<string> retval;
+
+    // If this string is an integer, just append it to retval
+    if (token[0] >= '0' && token[0] <= '9')
+    {
+        retval.push_back(token);
+        return retval;
+    }
+
+    // Point to the start of the token
+    const char *in = token;
+
+    // We're going to loop through each character of the input token
+    while (*in)
+    {
+        // We'll be copying characters into array 'name'
+        char* out = name;
+
+        // Fetch the next input character
+        int c = *in++;
+
+        // If that input character was an open-paren, keep extracting characters
+        // until we encounter the matching close-paren
+        if (c == '(') while (true)
+        {
+            c = *in++;
+            if (c == ')') break;
+            if (c == 0) throwRuntime("Unbalanced parenthesis in fragment file");
+            *out++ = c;
+        } 
+
+        // Otherwise, simply place that input character into 'name'
+        else *out++ = c;
+
+        // nul-terminate 'name'
+        *out++ = 0;
+
+        // Was the name we just extracted a nucleotide name?
+        auto it1 = nucleotide.find(name);
+
+        // If it was, then append the name of the nucleotide to 'retval'
+        if (it1 != nucleotide.end())
+        {
+            retval.push_back(name);
+            continue;
+        }
+
+        // Was the name we just extracted a fragment name?
+        auto it2 = fragment.find(name);
+
+        // If it was, then append the fragment definition to 'retval'
+        if (it2 != fragment.end())
+        {
+            auto& v = it2->second;
+            concatVec(retval, v);
+            continue;                
+        }
+
+        // If we get here, we've encountered a fragment definition that
+        // contains a symbol that is neither a nucleotide name, nor a fragment
+        // name, nor an integer literal
+        throwRuntime("Unknown fragment/nucleotide %s", name);
+    }    
+
+    // Hand the resulting vector of strings to the caller
+    return retval;
+}
+//=================================================================================================
 
 
 //=================================================================================================
@@ -520,7 +552,7 @@ void displayFragment(const char* name)
 void loadFragments()
 {
     char fragmentName[1000], buffer[1000];
-    vector<int> v;
+    vector<string> v;
     string line;
 
     // Fetch the filename of the fragment definiton file
@@ -559,24 +591,28 @@ void loadFragments()
         // If the fragment name is blank, skip this line
         if (fragmentName[0] == 0) continue;
 
-        // Fragments are allowed to share a name with a nucleotide
+        // Fragments are not allowed to share a name with a nucleotide
         if (nucleotide.find(fragmentName) != nucleotide.end())
         {
-            throwRuntime("Fragment '%s' shares name with nucleotide");            
+            throwRuntime("Fragment '%s' shares name with nucleotide", fragmentName);            
         }
     
-
-        // Fetch every integer value after the name
+        // Fetch every token on the line, and turn it into a list of strings
+        // representing either nucleotides or integer literals
         while (getNextCommaSeparatedToken(p, buffer))
         {
-            symbolsToIntVec(buffer, v);       
+            vector<string> ntides = tokenToStringVec(buffer);
+            concatVec(v, ntides);
         }
 
         // Save this fragment data into our global variable
         fragment[fragmentName] = v;
+
+        displayFragment(fragmentName);
     }
 }
 //=================================================================================================
+
 
 
 
@@ -688,12 +724,49 @@ void loadDistribution()
             auto& fragcv = fragment[fragmentName];
 
             // Append the cell values for this fragment to the distribution record
-            drcv.insert(drcv.end(), fragcv.begin(), fragcv.end());
+            //?drcv.insert(drcv.end(), fragcv.begin(), fragcv.end());
         }
 
         // And add this distribution record to the distribution list
         distributionList.push_back(distRecord);
     }
+}
+//=================================================================================================
+
+
+//=================================================================================================
+// fetchNucleotide() - Fills in a vector of ADC values that represent the specified nucleotide
+//
+// Returns:  true  if the specified nucleotide exists
+//           false if the specified nucleotide doesn't exist.
+//=================================================================================================
+bool fetchNucleotide(string name, vector<int>& retval)
+{
+
+    // The vector of return values starts out empty
+    retval.clear();
+
+    // Does this nucleotide name exist?
+    auto it = nucleotide.find(name);
+
+    // If it doesn't return an empty result
+    if (it == nucleotide.end()) return false;
+
+    // Get a handy reference to the integers that define this nucleotide
+    auto& v = it->second;
+
+    // We're going to append ADC values to 'retval'
+    for (int i=0; i<config.adc_per_nucleotide; ++i)
+    {
+        // Select a random index into the vector 'v'
+        int idx = rand() % v.size();
+
+        // And append that entry (from 'v') into our return vector
+        retval.push_back(v[idx]);
+    }
+
+    // Tell the caller that 'retval' contains ADC values for a nucleotide
+    return true;
 }
 //=================================================================================================
 
