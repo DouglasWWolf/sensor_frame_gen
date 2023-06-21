@@ -988,7 +988,7 @@ void readConfigurationFile(string filename)
     cf.get("random_seed",         &config.random_seed       );
     cf.get("data_frames",         &config.data_frames       );
     cf.get("diagnostic_values",   &config.diagnostic_values );
-    cf.get("open_channel",           &config.open_channel         );
+    cf.get("open_channel",        &config.open_channel      );
     cf.get("nucleotide_file",     &config.nucleotide_file   );
     cf.get("fragment_file",       &config.fragment_file     );
     cf.get("distribution_file",   &config.distribution_file );
