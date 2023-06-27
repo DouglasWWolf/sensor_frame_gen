@@ -98,7 +98,7 @@ struct config_t
     uint64_t         contig_size;
     vector<uint8_t>  diagnostic_values;
     uint32_t         data_frames;
-    uint8_t          open_channel;
+    uint8_t          filler_value;
     string           nucleotide_file;
     string           fragment_file;
     string           distribution_file;
@@ -906,7 +906,7 @@ uint32_t verifyDistributionIsValid()
 void buildDataFrame(uint8_t* frame, uint32_t frameNumber)
 {
     // Every cell in the frame starts out quiescient
-    memset(frame, config.open_channel, config.cells_per_frame);
+    memset(frame, config.filler_value, config.cells_per_frame);
 
     // Loop through every distribution record in the distribution list
     for (auto& dr : distributionList)
@@ -1045,7 +1045,7 @@ void readConfigurationFile(string filename)
     cf.get("random_seed",         &config.random_seed       );
     cf.get("data_frames",         &config.data_frames       );
     cf.get("diagnostic_values",   &config.diagnostic_values );
-    cf.get("open_channel",        &config.open_channel      );
+    cf.get("filler_value",        &config.filler_value      );
     cf.get("nucleotide_file",     &config.nucleotide_file   );
     cf.get("fragment_file",       &config.fragment_file     );
     cf.get("distribution_file",   &config.distribution_file );
