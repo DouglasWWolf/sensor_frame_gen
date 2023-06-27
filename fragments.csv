@@ -22,7 +22,7 @@ s = GATTACA
 alpha = pATTGCCCCCAATAATAAAAs
 
 # This defines example fragment name "bravo"
-bravo = p, $xyzzy, 123, 192, ATGAA(alpha)ATAGCCCCCCAATTGATAC, 255, 255, s
+bravo = p, @frag_data.bin, 123, 192, ATGAA(alpha)ATAGCCCCCCAATTGATAC, 255, 255, s
 
 # This defines example fragment name "ifs"
 ifs = 200, 200, 200
