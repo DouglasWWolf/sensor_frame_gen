@@ -95,8 +95,7 @@ struct config_t
     uint32_t         adc_per_nucleotide;
     uint64_t         random_seed;
     uint32_t         cells_per_frame;
-    uint64_t         contig_size;
-    vector<uint8_t>  diagnostic_values;
+    uint64_t         ring_buffer_size;
     uint32_t         data_frames;
     uint8_t          filler_value;
     string           nucleotide_file;
@@ -850,8 +849,6 @@ uint32_t findLongestSequence()
 //=================================================================================================
 uint32_t verifyDistributionIsValid()
 {
-    // How many diagnostic frames are there?
-    uint32_t diagnosticFrames = config.diagnostic_values.size();
 
     // Ensure that the number of cells in a single frame is a multiple of the row size
     if (config.cells_per_frame % ROW_SIZE != 0)
@@ -861,13 +858,13 @@ uint32_t verifyDistributionIsValid()
     }
 
     // What's the maximum number of frames that will fit into the contig buffer?
-    uint32_t maxFrames = config.contig_size / config.cells_per_frame;
+    uint32_t maxFrames = config.ring_buffer_size / config.cells_per_frame;
 
     // What is the maximum number of frames required by any fragment sequence?
     uint32_t longestSequence = findLongestSequence();
 
-    // A "frame group" is a set of diagnostic frames followed by a set of data frames.
-    uint32_t frameGroupLength = diagnosticFrames + config.data_frames;
+    // A "frame group" is a set of data frames.
+    uint32_t frameGroupLength = config.data_frames;
 
     // How many frames groups are required to express our longest sequence?
     uint32_t frameGroupCount = longestSequence / config.data_frames + 1;
@@ -882,7 +879,7 @@ uint32_t verifyDistributionIsValid()
     printf("%'16u Frames in the longest fragment sequence\n", longestSequence);
     printf("%'16u Frames in a frame group\n", frameGroupLength);
     printf("%'16u Frame group(s) required\n", frameGroupCount);
-    printf("%'16u Frames will fit into the contig buffer\n", maxFrames);
+    printf("%'16u Frames will fit into the contiguous buffer\n", maxFrames);
     printf("%'16u Frames required in total\n", totalReqdFrames);
     printf("%'16lu Bytes required in total\n", totalContigReqd);
 
@@ -933,9 +930,6 @@ void writeOutputFile(uint32_t frameGroupCount)
 {
     uint32_t i, frameNumber = 0;
 
-    // How many diagnostic frames are there?
-    uint32_t diagnosticFrames = config.diagnostic_values.size();
-
     // Fetch the name of the file we're going to create
     const char* filename = config.output_file.c_str();
    
@@ -952,14 +946,6 @@ void writeOutputFile(uint32_t frameGroupCount)
     // Loop through each frame group
     for (int32_t frameGroup = 0; frameGroup < frameGroupCount; ++frameGroup)
     {
-
-        // Write the correct number of diagnostic frames to the output file
-        for (i=0; i<diagnosticFrames; ++i)
-        {
-            memset(frame, config.diagnostic_values[i], config.cells_per_frame);
-            fwrite(frame, 1, config.cells_per_frame, ofile);
-        }
-
         // For each data frame in this frame group...
         for (i=0; i<config.data_frames; ++i)
         {
@@ -1027,7 +1013,7 @@ void trace(uint32_t cellNumber)
 void readConfigurationFile(string filename)
 {
     CConfigFile cf;
-    string cells_per_frame, contig_size;
+    string cells_per_frame, ring_buffer_size;
 
     // Declare a default filename
     const char* cfilename = "sensor_frame_gen.conf";
@@ -1040,11 +1026,10 @@ void readConfigurationFile(string filename)
 
     // Fetch each configuration
     cf.get("cells_per_frame",     &cells_per_frame          );
-    cf.get("contig_size",         &contig_size              );
+    cf.get("ring_buffer_size",    &ring_buffer_size         );
     cf.get("adc_per_nucleotide",  &config.adc_per_nucleotide);
     cf.get("random_seed",         &config.random_seed       );
     cf.get("data_frames",         &config.data_frames       );
-    cf.get("diagnostic_values",   &config.diagnostic_values );
     cf.get("filler_value",        &config.filler_value      );
     cf.get("nucleotide_file",     &config.nucleotide_file   );
     cf.get("fragment_file",       &config.fragment_file     );
@@ -1053,7 +1038,7 @@ void readConfigurationFile(string filename)
 
     // Convert the scaled integer strings into binary values
     config.cells_per_frame = stringTo64(cells_per_frame);
-    config.contig_size     = stringTo64(contig_size);
+    config.ring_buffer_size     = stringTo64(ring_buffer_size);
 }
 //=================================================================================================
 
