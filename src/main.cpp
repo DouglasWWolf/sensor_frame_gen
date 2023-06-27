@@ -30,6 +30,7 @@
 #include <fstream>
 #include "config_file.h"
 #include "PhysMem.h"
+#include "changelog.h"
 
 using namespace std;
  
@@ -113,6 +114,8 @@ struct config_t
 //=================================================================================================
 int main(int argc, const char** argv)
 {
+    // Tell the world what software version we are
+    printf("Version %s\n", VERSION_REV);
 
     try
     {
@@ -125,8 +128,13 @@ int main(int argc, const char** argv)
 }
 //=================================================================================================
 
+
+//=================================================================================================
+// concatVec() - Helper functions that concatenate vectors together
+//=================================================================================================
 void concatVec(vector<int>&    v1, vector<int>&    v2) {v1.insert(v1.end(), v2.begin(), v2.end());}
 void concatVec(vector<string>& v1, vector<string>& v2) {v1.insert(v1.end(), v2.begin(), v2.end());}
+//=================================================================================================
 
 //=================================================================================================
 // throwRuntime() - Throws a runtime exception
