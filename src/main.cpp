@@ -525,9 +525,9 @@ strvec_t tokenToStringVec(const char* token)
         return retval;
     }
 
-    // If this string begins with a '$', remainder of the string is the
+    // If this string begins with a '@', remainder of the string is the
     // the filename of a binary file that contains the actual ADC data
-    if (token[0] == '$')
+    if (token[0] == '@')
     {
         return readFragmentFromFile(token+1);
     }
