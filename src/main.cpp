@@ -465,13 +465,56 @@ void displayFragment(const char* name)
 
 
 //=================================================================================================
+// readFragmentFromFile() - Reads a file, converts every byte of that file into an ASCII Hex value
+//                          appends those ASCII hex values into a string vector, and returns the
+//                          string vector
+//=================================================================================================
+strvec_t readFragmentFromFile(const char* filename)
+{
+    strvec_t retval;
+    char buffer[20];      
+
+    // Open the input file
+    int fd = open(filename, O_RDONLY);
+
+    // If we can't open the file, complain about it
+    if (fd < 0) throwRuntime("Can't open fragment file '%s'", filename);
+
+    // Find out how large the file is in bytes
+    auto fileSize = lseek64(fd, 0, SEEK_END);
+
+    // Allocate sufficient RAM to contain the entire file
+    unique_ptr<uint8_t[]> fragData(new uint8_t[fileSize]);
+
+    // Rewind the file, read the entire file into RAM, and close it
+    lseek64(fd, 0, SEEK_SET);
+    read(fd, fragData.get(), fileSize);
+    close(fd);
+
+    // Loop through every byte of data in the file...
+    for (uint32_t i = 0; i<fileSize; ++i)
+    {
+        // Convert this byte to ASCII hex
+        sprintf(buffer, "0x%02X", fragData[i]);
+
+        // And add the ASCII hex version of this byte to our return vector
+        retval.push_back(buffer);
+    }
+
+    // Hand the vector of ASCII data to the caller
+    return retval;
+}
+//=================================================================================================
+
+
+//=================================================================================================
 // tokenToStringVec() - Breaks a token into a vector of strings
 //
 // If the token starts with a digit, the token is returned as is.
 // Any nucleotide name in the token is its own element in the output vector
 // Any fragment name in the token is turned into nucleotides in the output vector
 //=================================================================================================
-vector<string> tokenToStringVec(const char* token)
+strvec_t tokenToStringVec(const char* token)
 {
     char name[1000];
     vector<string> retval;
@@ -481,6 +524,13 @@ vector<string> tokenToStringVec(const char* token)
     {
         retval.push_back(token);
         return retval;
+    }
+
+    // If this string begins with a '$', remainder of the string is the
+    // the filename of a binary file that contains the actual ADC data
+    if (token[0] == '$')
+    {
+        return readFragmentFromFile(token+1);
     }
 
     // Point to the start of the token
