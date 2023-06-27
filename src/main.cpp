@@ -656,7 +656,6 @@ void loadFragments()
 
         // Save this fragment data into our global variable
         fragment[fragmentName] = v;
-        displayFragment(fragmentName);
     }
 }
 //=================================================================================================
