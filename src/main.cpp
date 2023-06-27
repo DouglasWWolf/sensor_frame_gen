@@ -440,7 +440,6 @@ void loadNucleotides()
         // Save this nucleotide data into our global variable
         nucleotide[name] = v;
     }
-
 }
 //=================================================================================================
 
@@ -657,6 +656,7 @@ void loadFragments()
 
         // Save this fragment data into our global variable
         fragment[fragmentName] = v;
+        displayFragment(fragmentName);
     }
 }
 //=================================================================================================
