@@ -1293,7 +1293,7 @@ void printDictionary()
     {
         name = it->first.c_str();
         length = it->second.size();
-        printf("%30s %6i\n", name, length);
+        printf("%30s %7i\n", name, length);
     }
 
     // Leave a couple of blank lines between the fragements and the sequences
@@ -1310,7 +1310,7 @@ void printDictionary()
     {
         sprintf(buffer, "%i,%i,%i", d.first, d.last, d.step);
         length = d.cellValue.size();
-        printf("%30s %6i\n", name, length);        
+        printf("%30s %7i\n", name, length);        
     }
 }
 //=================================================================================================
