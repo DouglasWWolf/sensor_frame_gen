@@ -45,6 +45,7 @@ void     parseCommandLine(const char** argv);
 void     trace(uint32_t cellNumber);
 void     readConfigurationFile(string filename);
 void     loadFile(string filename, string address);
+void     printDictionary();
 uint64_t stringTo64(const string& str);
 
 // Define a convenient type to encapsulate a vector of strings
@@ -80,8 +81,12 @@ struct cmdline_t
     string   filename;
     string   address;
     string   sizeLimit;
+    
     bool     trace;
     uint32_t cellNumber;
+    
+    bool     dict;
+    
     string   config;
 } cmdLine;
 //=================================================================================================
@@ -256,6 +261,13 @@ void parseCommandLine(const char** argv)
             continue;
         }
 
+        // Handle the "-dict" command line switch
+        if (token == "-dict")
+        {
+            cmdLine.dict = true;
+            continue;            
+        }
+
         // Handle the "-config" command line switch
         if (token == "-config")
         {
@@ -318,8 +330,11 @@ void execute(const char** argv)
     // Find out how many frame groups we need to write to the output file
     uint32_t frameGroupCount = verifyDistributionIsValid();
 
-    // Write the output file
-    writeOutputFile(frameGroupCount);
+    // Either print out the data dictionary, or create the output file
+    if (cmdLine.dict)
+        printDictionary();
+    else
+        writeOutputFile(frameGroupCount);
 }
 //=================================================================================================
 
@@ -1250,6 +1265,50 @@ void loadFile(string filename, string address)
 
     // Close the input file, we're done
     close(fd);
+}
+//=================================================================================================
+
+
+
+//=================================================================================================
+// printDictionary() - Display the name of each fragment along with its length (in frames), then
+//                     display every fragment sequence along with its length (in frames)
+//=================================================================================================
+void printDictionary()
+{
+    const char* name;
+    int length;
+    char buffer[100];
+
+    // Display a legend for the fragment dictionary
+    printf("\n");
+    printf("%30s    Size\n", "Fragment Name");
+    printf("------------------------------------------\n");
+
+    // Display the name and length of each fragment
+    for (auto it=fragment.begin(); it != fragment.end(); ++it)
+    {
+        name = it->first.c_str();
+        length = it->second.size();
+        printf("%30s %6i\n", name, length);
+    }
+
+    // Leave a couple of blank lines between the fragements and the sequences
+    printf("\n\n");
+    printf("%30s    Size\n", "Distribution Name");
+    printf("------------------------------------------\n");
+
+
+    // The name of the distribution will be stuffed into "buffer"
+    name = buffer;
+    
+    // Display the name and length of each distribution sequence
+    for (auto d : distributionList)
+    {
+        sprintf(buffer, "%i,%i,%i", d.first, d.last, d.step);
+        length = d.cellValue.size();
+        printf("%30s %6i\n", name, length);        
+    }
 }
 //=================================================================================================
 
