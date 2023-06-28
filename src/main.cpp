@@ -10,6 +10,8 @@
 //   -trace <cell_number>    : instead of creating an output file, traces a cell in an existing 
 //                             file.
 //
+//   -dict                   : instead of creating an output file, display data dictionary
+//
 //   -load <filename> <addr> <size_limit>
 //                           : instead of creating output file, loads a file into the specified
 //                             RAM physical address
@@ -197,6 +199,7 @@ void showHelp()
         "Usage:\n"
         "  sfg [-config <filename>]\n"
         "  sfg -trace <cell_number>\n"
+        "  sfg -dict\n"
         "  sfg -load <filename> <address> <size_limit>\n"
         "\n"
         "  <address> and <size_limit> may be expressed in either decimal or hex, and may\n"
