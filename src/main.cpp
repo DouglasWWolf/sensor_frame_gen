@@ -885,9 +885,10 @@ uint32_t verifyDistributionIsValid()
     uint32_t frameGroupLength = config.data_frames;
 
     // How many frames groups are required to express our longest sequence?
-    uint32_t frameGroupCount = longestSequence / config.data_frames + 1;
+    uint32_t frameGroupCount = longestSequence / config.data_frames;
+    if (longestSequence % config.data_frames) ++frameGroupCount;
 
-    // How many data frames are in 'frameGroupCount' frameg groups?
+    // How many data frames are in 'frameGroupCount' frame groups?
     uint32_t totalReqdFrames = frameGroupCount * frameGroupLength;
 
     // How many bytes will that number of frames occupy in the contiguous buffer?
